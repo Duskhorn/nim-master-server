@@ -42,6 +42,7 @@ proc serve(port: int, ip, dir: string) {. async .} =
     while true:
         if reload_cfg:
             echo "reloading " & cfg_name
+            #TODO: some sort of config reload
             #ban_game_servers() # TODO
             #ban_clients() # TODO
             #generate_banlist() # TODO
