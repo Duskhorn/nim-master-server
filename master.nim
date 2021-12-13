@@ -50,6 +50,9 @@ proc serve(port: int, ip, dir: string) {. async .} =
         let c = await server.accept()
         clients.add c
 
+        #check_clients() #TODO
+        #check_gameservers() #TODO
+
 
 let pc = paramCount() 
 
