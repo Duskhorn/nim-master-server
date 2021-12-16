@@ -1,11 +1,24 @@
 import std/[asyncnet, asyncdispatch]
-from times import get_clock_str, get_date_str, now, DateTime
+from times import getClockStr, getDateStr, now, DateTime
+from std/monotimes import getMonoTime, MonoTime
 from strutils import isEmptyOrWhitespace
-from parseutils import parse_int
+from parseutils import parseInt
 from os import paramStr, paramCount
 
-var clients {. threadvar .}: seq[AsyncSocket] 
-var curr_time: DateTime
+type ServerInfo = object
+    ip: string
+    host, port, num_pings, last_ping, last_pong: int
+
+
+var 
+    clients {. threadvar .}: seq[AsyncSocket] 
+    gameservers {. threadvar .}: seq[ServerInfo]
+    server_time {. threadvar .}: MonoTime
+
+
+proc check_clients(server: AsyncSocket, cls: seq[AsyncSocket]) {. async .} =
+        let c = await server.accept()
+        clients.add c
 
 proc init_server(port: int, ip: string): AsyncSocket = 
     
@@ -17,8 +30,9 @@ proc init_server(port: int, ip: string): AsyncSocket =
 
     #TODO: setup ping socket
 
-    curr_time = now()
-    let time = get_date_str(curr_time) & " " & get_clock_str(curr_time)
+    let 
+        curr_time = now()
+        time = get_date_str(curr_time) & " " & get_clock_str(curr_time)
 
     var curr_ip: string
     if ip.isEmptyOrWhitespace:  currip = "localhost"
@@ -35,7 +49,7 @@ proc serve(port: int, ip, dir: string) {. async .} =
 
     var
         reload_cfg = true
-        cfg_name = ""
+        cfg_name = dir & "master.cfg"
         logfile = stdout
 
 
@@ -48,8 +62,9 @@ proc serve(port: int, ip, dir: string) {. async .} =
             #generate_banlist() # TODO
             reload_cfg = false
 
-        let c = await server.accept()
-        clients.add c
+        server_time = get_mono_time()
+        asyncCheck server.check_clients(clients)
+        
 
         #check_clients() #TODO
         #check_gameservers() #TODO
