@@ -1,24 +1,54 @@
 import std/[asyncnet, asyncdispatch]
+import tables
+
+from nativesockets import Port, `$`
+
 from times import getClockStr, getDateStr, now, DateTime
 from std/monotimes import getMonoTime, MonoTime
+
 from strutils import isEmptyOrWhitespace
 from parseutils import parseInt
+
 from os import paramStr, paramCount
 
-type ServerInfo = object
-    ip: string
-    host, port, num_pings, last_ping, last_pong: int
+const 
+    client_limit = 4096
+
+
+type 
+    ServerInfo = object
+        ip: string
+        host, port, num_pings, last_ping, last_pong: int
+
+    Clients = Table[string, AsyncSocket]
+    GameServers = Table[string, ServerInfo]
 
 
 var 
-    clients {. threadvar .}: seq[AsyncSocket] 
-    gameservers {. threadvar .}: seq[ServerInfo]
+    clients {. threadvar .}: Clients 
+    gameservers {. threadvar .}: GameServers
     server_time {. threadvar .}: MonoTime
 
 
-proc check_clients(server: AsyncSocket, cls: seq[AsyncSocket]) {. async .} =
-        let c = await server.accept()
-        clients.add c
+proc check_clients(server: AsyncSocket, cls: Clients): Future[Clients] {. async .} =
+    
+    var cls = cls
+    for idx, cl in pairs(cls):
+        if cl.isClosed():
+            cls.del(idx)
+    
+    echo cls.len()
+    let 
+        c = await server.accept()
+        (i, _) = c.getPeerAddr()
+
+    echo i
+    cls[i] = c
+    echo cls.len()
+
+    return cls
+        
+        
 
 proc init_server(port: int, ip: string): AsyncSocket = 
     
@@ -63,8 +93,8 @@ proc serve(port: int, ip, dir: string) {. async .} =
             reload_cfg = false
 
         server_time = get_mono_time()
-        asyncCheck server.check_clients(clients)
-        
+        #logfile.write($server_time & "\r")
+        clients = await server.check_clients(clients)
 
         #check_clients() #TODO
         #check_gameservers() #TODO
