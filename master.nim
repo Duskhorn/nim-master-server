@@ -43,7 +43,11 @@ proc check_clients(server: AsyncSocket, cls: Clients): Future[Clients] {. async 
         (i, _) = c.getPeerAddr()
 
     echo i
-    cls[i] = c
+    if cls.len <= client_limit:
+        cls[i] = c
+    else:
+        c.close()
+        
     echo cls.len()
 
     return cls
