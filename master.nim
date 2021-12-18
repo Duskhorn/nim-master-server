@@ -32,23 +32,25 @@ var
 
 proc check_clients(server: AsyncSocket, cls: Clients): Future[Clients] {. async .} =
     
+    #copy the clients locally; threadvar safety
     var cls = cls
+
+    #remove closed connections from the clients
     for idx, cl in pairs(cls):
         if cl.isClosed():
             cls.del(idx)
     
-    echo cls.len()
+    #connect the socket to the server
     let 
         c = await server.accept()
         (i, _) = c.getPeerAddr()
 
-    echo i
+    #check if it can connect and add it to the pool
+    #kick if necessary. #TODO: kick if banned
     if cls.len <= client_limit:
         cls[i] = c
     else:
         c.close()
-        
-    echo cls.len()
 
     return cls
         
@@ -98,9 +100,8 @@ proc serve(port: int, ip, dir: string) {. async .} =
 
         server_time = get_mono_time()
         #logfile.write($server_time & "\r")
-        clients = await server.check_clients(clients)
+        clients = await server.check_clients(clients) 
 
-        #check_clients() #TODO
         #check_gameservers() #TODO
 
 
