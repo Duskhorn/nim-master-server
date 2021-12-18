@@ -107,7 +107,8 @@ proc serve(port: int, ip, dir: string) {. async .} =
         clients = await server.check_clients(clients) 
         
         for id, cl in pairs(clients):
-            echo await cl.recv(input_limit)
+            let q = await cl.recv(input_limit)
+            echo "pog: " & q
 
         #check_gameservers() #TODO
 
