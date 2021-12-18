@@ -13,6 +13,7 @@ from os import paramStr, paramCount
 
 const 
     client_limit = 4096
+    input_limit = 4096
 
 
 type 
@@ -29,7 +30,8 @@ var
     gameservers {. threadvar .}: GameServers
     server_time {. threadvar .}: MonoTime
 
-
+## Check a new client connection and update the clients
+## This function should never have side effects for thread safety
 proc check_clients(server: AsyncSocket, cls: Clients): Future[Clients] {. async .} =
     
     #copy the clients locally; threadvar safety
@@ -50,10 +52,11 @@ proc check_clients(server: AsyncSocket, cls: Clients): Future[Clients] {. async 
     if cls.len <= client_limit:
         cls[i] = c
     else:
+        await c.send("you're either banned or the client limit has been exceeded")
         c.close()
 
+    #return the updated client list
     return cls
-        
         
 
 proc init_server(port: int, ip: string): AsyncSocket = 
@@ -78,7 +81,7 @@ proc init_server(port: int, ip: string): AsyncSocket =
     echo "*** starting master server on " & currip & ":" & $port & " at " & time
     return server
 
-
+## Main server loop
 proc serve(port: int, ip, dir: string) {. async .} =
 
     let server = init_server(port, ip)
@@ -100,7 +103,11 @@ proc serve(port: int, ip, dir: string) {. async .} =
 
         server_time = get_mono_time()
         #logfile.write($server_time & "\r")
+
         clients = await server.check_clients(clients) 
+        
+        for id, cl in pairs(clients):
+            echo await cl.recv(input_limit)
 
         #check_gameservers() #TODO
 
